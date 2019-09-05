@@ -2,7 +2,7 @@
 title: "Assignment 1 - Data Cleaning - Instructions"
 author: "[FILL IN YOUR NAME]"
 date: "[FILL IN THE DATE]"
-output: 
+output:   
   md_document:
     variant: markdown_github
 ---
@@ -63,7 +63,7 @@ If you're not in a project in Rstudio, make sure to set your working directory h
 If you created an RStudio project, then your working directory (the directory with your data and code for these assignments) is the project directory.
 
 ```{r}
-pacman::p_load(tidyverse,janitor)
+pacman::p_load(tidyverse,janitor, plyr)
 ```
 
 Load the three data sets, after downloading them from dropbox and saving them in your working directory:
@@ -72,6 +72,16 @@ Load the three data sets, after downloading them from dropbox and saving them in
 * Word data: https://www.dropbox.com/s/8ng1civpl2aux58/token_train.csv?dl=0
 
 ```{r}
+# Loading the three files:
+demog <- read_csv("demo_train.csv") # Demographic data 
+length_u <- read_csv("LU_train.csv") # Length of utterance data
+word_d <- read_csv("token_train.csv") # Word data 
+
+#-----> Exploring data <-----#
+# Looking at the head of each dataset
+head(demog)
+head(length_u)
+head(word_d)
 
 ```
 
@@ -92,7 +102,13 @@ Tip: look through the chapter on data transformation in R for data science (http
 
 
 ```{r}
+#-----> Finding problematic variables <-----#
+# > In the Word Data, participants are called SUBJ - the observations are characters. The visits are called VISIT - and the observations are characters.
+# > in the Length of Utterance, participants are called SUBJ . the observations are charactrs. The visits are called VISIT - and the observations are characters.
+# > In the demography data, participants are called Child.ID - the observations are characters. the visits are called Visit, and the observations are integers. Also, the ethnicities are weird. 
 
+# > Some participants are called by their names, others are given participant names.
+# > Some of the values for the visits have capitalised letters, some have not. 
 ```
 
 2b. Find a way to homogeneize the way "visit" is reported (visit1 vs. 1).
@@ -101,8 +117,13 @@ Tip: The stringr package is what you need. str_extract () will allow you to extr
 
 
 ```{r}
-
-
+#-----> Homegenizing how "visit" is reported using str_extract() <-----#
+? str_extract() # What does this do?
+# Word Data
+word_d$VISIT <- word_d$VISIT %>% str_extract("\\d") %>% as.integer() # Extracting and transforming the values into an integer.
+# Length of utterances
+length_u$VISIT <- length_u$VISIT %>% str_extract("\\d") %>% as.integer() # Extracting and transforming the values into an integer.
+# > We do not need to change the demography data
 ```
 
 2c. We also need to make a small adjustment to the content of the Child.ID coloumn in the demographic data. Within this column, names that are not abbreviations do not end with "." (i.e. Adam), which is the case in the other two data sets (i.e. Adam.). If The content of the two variables isn't identical the rows will not be merged.
@@ -113,7 +134,14 @@ Tip: You can either have one line of code for each child name that is to be chan
 
 
 ```{r}
-
+#-----> Homegenizing how the participants is reported using str_replace_all() <-----#
+? str_replace_all() # What does this do?
+# Demography
+demog$Child.ID <- demog$Child.ID %>% str_replace_all("[:punct:]", "")
+# Length of utterances 
+length_u$SUBJ <- length_u$SUBJ %>% str_replace_all("[:punct:]", "")
+# Word data 
+word_d$SUBJ <- word_d$SUBJ %>% str_replace_all("[:punct:]", "")
 ```
 
 2d. Now that the nitty gritty details of the different data sets are fixed, we want to make a subset of each data set only containig the variables that we wish to use in the final data set.
@@ -149,7 +177,13 @@ Most variables should make sense, here the less intuitive ones.
 Feel free to rename the variables into something you can remember (i.e. nonVerbalIQ, verbalIQ)
 
 ```{r}
-
+#-----> Making subsets of dataframes with lots of columns <-----#
+# Demography data 
+sub_demo <- demog %>% select(Child.ID, Visit, Diagnosis, Ethnicity, Gender, Age, ADOS, MullenRaw, ExpressiveLangRaw, Socialization)
+# Lenght of utterances
+sub_length <- length_u %>% select(SUBJ, VISIT, MOT_MLU, CHI_MLU)
+# Word data 
+sub_word <- word_d %>% select(SUBJ, VISIT, types_MOT, types_CHI, tokens_MOT, tokens_CHI)
 ```
 
 2e. Finally we are ready to merge all the data sets into just one. 
@@ -159,8 +193,39 @@ Some things to pay attention to:
 * make sure to understand whether (and if so why) there are NAs in the dataset (e.g. some measures were not taken at all visits, some recordings were lost or permission to use was withdrawn)
 
 ```{r}
+#-----> Merging all relevant colums into one giant dataframe <-----#
 
+# filter_demo <- group_demo %>% filter(group_demo$Visit < 6)
 
+#group_demo <- sub_demo %>% group_by(Child.ID) %>% summarise(Visit = n())
+
+#group_word <- word_d %>% group_by(SUBJ) %>% summarise(VISIT = n())
+
+#filter_word <- group_word %>% filter(VISIT < 6)
+
+#group_utt <- length_u %>% group_by(SUBJ) %>% summarise(VISIT = n())
+
+#filter_utt <- group_utt %>% filter(VISIT < 6)
+
+#group_utt <- group_utt %>% arrange(SUBJ)
+
+#group_word <- group_word %>% arrange(SUBJ)
+
+#group_word$SUBJ == group_utt$SUBJ
+
+#group_word$VISIT == group_utt$VISIT
+
+#unique(group_demo$Child.ID[! group_demo$Child.ID %in% group_utt$SUBJ])
+
+# > Changing the name of Child.ID and Visit
+# SUBJ
+colnames(sub_demo)[1] <- "SUBJ"
+# VISIT
+colnames(sub_demo)[2] <- "VISIT"
+
+# > Merging the three dataframes
+merge_word_utt <- merge(sub_length, sub_word)
+merged <- merge(merge_word_utt, sub_demo)
 ```
 
 
@@ -175,7 +240,26 @@ A possible way to do so:
 
 
 ```{r}
+#---> Creating a new dataset with only visit 1 and the imprtan vairables
+visit1 <- merged %>% filter(VISIT == 1)
+# Removing VISIT an irrelevant columns
+drops <- c("SUBJ","ADOS","MullenRaw", "ExpressiveLangRaw", "Socialization")
+visit1 <- visit1[ , (names(visit1) %in% drops)]
+# you can also remove VISIT like this
+#visit1$VISIT <- NULL
 
+#---> Renameing the clinical columns
+# ADOS
+colnames(visit1)[2] <- "ADOS1"
+# MullenRaw
+colnames(visit1)[3] <- "MullenRaw1"
+# ExpressiveLangRaw
+colnames(visit1)[4] <- "ExpressiveLangRaw1"
+# Socialization
+colnames(visit1)[5] <- "Socialization1"
+
+#---> Merging the new dataset with the old
+v1_merged <- merge(visit1, merged)
 ```
 
 2g. Final touches
@@ -186,6 +270,32 @@ Now we want to
 * Save the data set using into a csv file. Hint: look into write.csv()
 
 ```{r}
+#---> Anonymizing participants
+# Making the participants into a factor
+v1_merged$SUBJ <- v1_merged$SUBJ %>% as.factor()
+# checking the levels
+levels(v1_merged$SUBJ)
+# Relevelling the factor
+levels(v1_merged$SUBJ)[1:61] <- 1:61
+# unfactoring the factor
+v1_merged$SUBJ <- v1_merged$SUBJ %>% as.integer()
+
+#---> naming the genders
+# Factoring it
+v1_merged$Gender <- as.factor(v1_merged$Gender)
+# Relevelling
+v1_merged$Gender <- revalue(v1_merged$Gender, c("1"="M", "2"="F"))
+
+#---> Naming the diagnosis
+# Factoring it
+v1_merged$Diagnosis <- as.factor(v1_merged$Diagnosis)
+# What are the levels?
+levels(v1_merged$Diagnosis)
+# Relevelling it
+v1_merged$Diagnosis <- revalue(v1_merged$Diagnosis, c("A"="ASD", "B"="TD"))
+
+#---> Saving to a csv file
+write.csv(v1_merged, file = "dataset.csv")
 
 ```
 
