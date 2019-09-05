@@ -4,7 +4,7 @@ author: "[FILL IN YOUR NAME]"
 date: "[FILL IN THE DATE]"
 output: 
   md_document:
-    
+    variant: markdown_github
 ---
 
 # Assignment 1, Language development in Autism Spectrum Disorder (ASD) - Brushing up your code skills
