@@ -1,7 +1,7 @@
 ---
 title: "Assignment 1 - Data Cleaning - Instructions"
-author: "[FILL IN YOUR NAME]"
-date: "[FILL IN THE DATE]"
+author: "Rebecca Folmer Schade"
+date: "10-09-2019"
 output:   
   md_document:
     variant: markdown_github
